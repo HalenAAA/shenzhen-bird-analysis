@@ -210,7 +210,9 @@ def search_bird(keyword):
 
     # === 匹配物种 ===
     exact_cn = [s for s, cn in BIRD_NAMES.items() if cn == keyword]
-    exact_en = [s for s in BIRD_NAMES.keys() if keyword in s.lower()]
+    # 学名精确匹配（防 "hl" 误匹配 "Chloris"）
+    exact_en = [s for s in BIRD_NAMES.keys() if
+                keyword == s.lower() or keyword in s.lower().split(" ")]
 
     if exact_cn:
         candidates = exact_cn
@@ -219,9 +221,9 @@ def search_bird(keyword):
     else:
         fuzzy_cn = [s for s, cn in BIRD_NAMES.items() if keyword in cn]
         fuzzy_en = [s for s in BIRD_NAMES.keys() if keyword in s.lower()]
-        # 拼音匹配（输入 "bl" 找到 "白鹭"）
         fuzzy_py = match_by_pinyin(keyword)
-        candidates = list(set(fuzzy_cn + fuzzy_en + fuzzy_py))
+        # 拼音匹配优先
+        candidates = list(set(fuzzy_py + fuzzy_cn + fuzzy_en))
 
     if not candidates:
         print(f"没有找到 [{keyword}]，试试其他关键词")

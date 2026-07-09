@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 
-from search_bird import BIRD_NAMES, HOTSPOTS, coord_to_desc, get_cn, get_label, match_by_pinyin
+from search_bird import BIRD_NAMES, HOTSPOTS, coord_to_desc, get_cn, get_label, match_by_pinyin, get_py_initials
 from bird_wiki import get_local_fact, get_en_name, get_inaturalist_photo_url
 import pandas as pd
 
@@ -157,7 +157,9 @@ elif page == "🔍 鸟类查询":
     if search_text:
         keyword = search_text.strip().lower()
         exact_cn = [s for s, cn in BIRD_NAMES.items() if cn == keyword]
-        exact_en = [s for s in BIRD_NAMES.keys() if keyword in s.lower()]
+        # 学名精确匹配（防止 "hl" 匹配到 "Chloris" 里的 "hl"）
+        exact_en = [s for s in BIRD_NAMES.keys() if
+                    keyword == s.lower() or keyword in s.lower().split(" ")]
 
         if exact_cn:
             candidates = exact_cn
@@ -167,7 +169,8 @@ elif page == "🔍 鸟类查询":
             fuzzy_cn = [s for s, cn in BIRD_NAMES.items() if keyword in cn]
             fuzzy_en = [s for s in BIRD_NAMES.keys() if keyword in s.lower()]
             fuzzy_py = match_by_pinyin(keyword)
-            candidates = list(set(fuzzy_cn + fuzzy_en + fuzzy_py))
+            # 拼音匹配优先于模糊学名匹配
+            candidates = list(set(fuzzy_py + fuzzy_cn + fuzzy_en))
 
         if not candidates:
             st.warning(f"没有找到「{search_text}」")
@@ -348,7 +351,19 @@ elif page == "📖 鸟类百科":
 
     if search_term:
         keyword = search_term.strip().lower()
-        matches = [(cn, sp) for cn, sp in known_species if keyword in cn.lower() or keyword in sp.lower()]
+        # 先试拼音，再试中文模糊，最后学名精确匹配
+        py_matches = []
+        for cn, sp in known_species:
+            initials = get_py_initials(cn)
+            if initials and initials.startswith(keyword):
+                py_matches.append((cn, sp))
+        if py_matches:
+            matches = py_matches
+        else:
+            matches = [(cn, sp) for cn, sp in known_species
+                       if keyword in cn.lower() or
+                       keyword == sp.lower() or
+                       keyword in sp.lower().split(" ")]
 
         if not matches:
             st.warning(f"没有找到「{search_term}」")
