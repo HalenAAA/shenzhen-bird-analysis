@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 
-from search_bird import BIRD_NAMES, HOTSPOTS, coord_to_desc, get_cn, get_label
+from search_bird import BIRD_NAMES, HOTSPOTS, coord_to_desc, get_cn, get_label, match_by_pinyin
 from bird_wiki import get_local_fact, get_en_name, get_inaturalist_photo_url
 import pandas as pd
 
@@ -152,7 +152,7 @@ elif page == "🔍 鸟类查询":
     st.title("🔍 鸟类位置查询")
     st.caption("输入鸟名，查看它在深圳的主要出现位置")
 
-    search_text = st.text_input("输入中文名或学名", placeholder="例：白鹭、egret、黑脸琵鹭")
+    search_text = st.text_input("输入中文名、学名或拼音首字母", placeholder="例：白鹭、egret、hl（黑脸琵鹭）")
 
     if search_text:
         keyword = search_text.strip().lower()
@@ -166,7 +166,8 @@ elif page == "🔍 鸟类查询":
         else:
             fuzzy_cn = [s for s, cn in BIRD_NAMES.items() if keyword in cn]
             fuzzy_en = [s for s in BIRD_NAMES.keys() if keyword in s.lower()]
-            candidates = list(set(fuzzy_cn + fuzzy_en))
+            fuzzy_py = match_by_pinyin(keyword)
+            candidates = list(set(fuzzy_cn + fuzzy_en + fuzzy_py))
 
         if not candidates:
             st.warning(f"没有找到「{search_text}」")
@@ -343,7 +344,7 @@ elif page == "📖 鸟类百科":
     known_species = [(cn, sp) for sp, cn in BIRD_NAMES.items()]
     known_species.sort(key=lambda x: x[0])
 
-    search_term = st.text_input("搜索鸟类（中文名或学名）", placeholder="例：白鹭、翠鸟、sparrow")
+    search_term = st.text_input("搜索鸟类（中文名/学名/拼音）", placeholder="例：白鹭、翠鸟、hl（黑脸琵鹭）")
 
     if search_term:
         keyword = search_term.strip().lower()
@@ -417,6 +418,10 @@ elif page == "📝 我的记录":
         st.session_state.my_records = []
 
     st.subheader("✏️ 添加记录")
+
+    # 两种记录模式
+    record_mode = st.radio("记录模式", ["📱 随手记（快速）", "🎯 详细记录"], horizontal=True)
+
     col1, col2, col3 = st.columns(3)
     with col1:
         record_date = st.date_input("日期", datetime.now())
@@ -427,8 +432,12 @@ elif page == "📝 我的记录":
         bird_options = [f"{cn} ({sp})" for sp, cn in BIRD_NAMES.items()]
         record_bird = st.selectbox("鸟种", bird_options)
 
-    record_note = st.text_area("备注", placeholder="数量、行为、天气……")
-    record_photo = st.text_input("照片链接（可选）", placeholder="https://...")
+    if record_mode == "🎯 详细记录":
+        record_note = st.text_area("备注", placeholder="数量、行为、天气……")
+        record_photo = st.text_input("照片链接（可选）", placeholder="https://...")
+    else:
+        record_note = st.text_input("备注（可选）", placeholder="数量、行为……")
+        record_photo = ""
 
     if st.button("✅ 保存记录"):
         species = record_bird.split(" (")[1].rstrip(")") if " (" in record_bird else record_bird

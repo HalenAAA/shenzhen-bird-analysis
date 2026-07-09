@@ -1,8 +1,24 @@
 """
 鸟类查询工具 —— 输入鸟名，查找它在深圳最常出现的位置
-支持中文名和英文（学名）模糊搜索，结果按地点名称分组
+支持中文名/学名/拼音首字母搜索，结果按地点名称分组
 """
 import pandas as pd
+
+# ========== 拼音首字母支持 ==========
+try:
+    from pypinyin import lazy_pinyin
+    HAS_PINYIN = True
+except ImportError:
+    HAS_PINYIN = False
+
+def get_py_initials(text):
+    """取中文的拼音首字母，如 '白鹭' → 'bl'"""
+    if not HAS_PINYIN:
+        return ""
+    try:
+        return "".join([w[0] for w in lazy_pinyin(text)]).lower()
+    except:
+        return ""
 
 # ========== 鸟类中英文词典（150种） ==========
 BIRD_NAMES = {
@@ -85,6 +101,34 @@ BIRD_NAMES = {
     "Butorides striata": "绿鹭", "Ixobrychus sinensis": "黄苇鳽",
     "Bubulcus ibis": "牛背鹭", "Dendrocopos major": "大斑啄木鸟",
 }
+
+
+# ========== 拼音首字母 + 全拼缓存 ==========
+PINYIN_INITIALS = {}   # "白鹭" → "bl"
+PINYIN_FULL = {}       # "白鹭" → "bailu"
+if HAS_PINYIN:
+    for sp, cn in BIRD_NAMES.items():
+        py = lazy_pinyin(cn)
+        initials = "".join([w[0] for w in py]).lower()
+        full = "".join(py).lower().replace(" ", "")
+        PINYIN_INITIALS[cn] = initials
+        PINYIN_INITIALS[sp] = initials
+        PINYIN_FULL[cn] = full
+        PINYIN_FULL[sp] = full
+
+
+def match_by_pinyin(keyword):
+    """拼音匹配：输入 'bl' 或 'bailu' 找到 '白鹭'"""
+    if not HAS_PINYIN or not keyword:
+        return []
+    keyword = keyword.lower().replace(" ", "")
+    results = []
+    for sp, cn in BIRD_NAMES.items():
+        initials = PINYIN_INITIALS.get(cn, "")
+        full = PINYIN_FULL.get(cn, "")
+        if (initials and initials.startswith(keyword)) or (full and full.startswith(keyword)):
+            results.append(sp)
+    return results
 
 
 def get_cn(species):
@@ -175,7 +219,9 @@ def search_bird(keyword):
     else:
         fuzzy_cn = [s for s, cn in BIRD_NAMES.items() if keyword in cn]
         fuzzy_en = [s for s in BIRD_NAMES.keys() if keyword in s.lower()]
-        candidates = list(set(fuzzy_cn + fuzzy_en))
+        # 拼音匹配（输入 "bl" 找到 "白鹭"）
+        fuzzy_py = match_by_pinyin(keyword)
+        candidates = list(set(fuzzy_cn + fuzzy_en + fuzzy_py))
 
     if not candidates:
         print(f"没有找到 [{keyword}]，试试其他关键词")
