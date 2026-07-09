@@ -3,10 +3,6 @@
 支持中文名和英文（学名）模糊搜索，结果按地点名称分组
 """
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "Arial Unicode MS"]
-matplotlib.rcParams["axes.unicode_minus"] = False
 
 # ========== 鸟类中英文词典（150种） ==========
 BIRD_NAMES = {
@@ -218,6 +214,11 @@ def search_bird(keyword):
 
 def plot_location_distribution(species, location_counts):
     """画该鸟种的地点名分布条形图"""
+    import matplotlib
+    import matplotlib.pyplot as plt
+    matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "Arial Unicode MS"]
+    matplotlib.rcParams["axes.unicode_minus"] = False
+
     cn_name = get_cn(species)
     top = location_counts.head(12)
 
